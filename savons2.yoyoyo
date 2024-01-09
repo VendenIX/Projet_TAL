@@ -1,0 +1,182 @@
+import nltk
+import spacy 
+from spacy import displacy
+from nltk.corpus import wordnet as wn
+from nltk.tokenize import word_tokenize
+from nltk.wsd import lesk
+import random
+# Assure-toi d'avoir téléchargé les données nécessaires
+# nltk.download('wordnet')
+# nltk.download('punkt')
+#pour dl en_core_web_sm:
+# python -m spacy download en_core_web_sm
+#!python3 -m spacy download en_core_web_sm
+nlp = spacy.load("en_core_web_sm")
+# Tes phrases
+phrases = [
+    "A black cat stealthily sneaks through the dark alley.",
+    "The old gray cat sleeps peacefully on the windowsill.",
+    "A small white cat attentively watches a bird from the garden.",
+    "The striped kitten playfully plays with a red ball of wool.",
+    "A majestic cat proudly perches on top of the wall.",
+    "The gentle calico cat purrs softly while snuggling on the sofa.",
+    "The young ginger cat chases the leaves dancing in the wind.",
+    "An elegant cat gracefully walks along the stone path.",
+    "The Siamese cat curiously looks through the kitchen window.",
+    "An adventurous cat boldly explores the dusty attic."
+]
+# Création d'un dictionnaire pour stocker les mots par catégorie grammaticale
+pos_dict = {
+    "DET": [],
+    "ADJ": [],
+    "NOUN": [],
+    "ADV": [],
+    "VERB": [],
+    "ADP": [],
+    # Ajouter d'autres catégories si nécessaire
+}
+
+# Analyser chaque phrase et ajouter les mots au dictionnaire selon leur catégorie
+for phrase in phrases:
+    doc = nlp(phrase)
+    for token in doc:
+        if token.pos_ in pos_dict:
+            pos_dict[token.pos_].append(token.text)
+
+# Assurer l'unicité des mots dans chaque catégorie
+for key in pos_dict:
+    pos_dict[key] = list(set(pos_dict[key]))
+
+#pos_dict
+
+# Fonction pour trouver des synonymes dans WordNet
+def find_synonyms(word, pos=None):
+    synonyms = set()
+    for syn in wn.synsets(word, pos=pos):
+        for lemma in syn.lemmas():
+            synonyms.add(lemma.name().replace('_', ' '))
+    return list(synonyms)
+
+# Fonction pour trouver des antonymes dans WordNet
+def find_antonyms(word, pos=None):
+    antonyms = set()
+    for syn in wn.synsets(word, pos=pos):
+        for lemma in syn.lemmas():
+            if lemma.antonyms():
+                antonyms.add(lemma.antonyms()[0].name().replace('_', ' '))
+    return list(antonyms)
+
+# Fonction pour trouver des mots liés dans WordNet
+def find_related_words(word, pos=None):
+    related = set()
+    for syn in wn.synsets(word, pos=pos):
+        for hyponym in syn.hyponyms():
+            related.update(lemma.name().replace('_', ' ') for lemma in hyponym.lemmas())
+    return list(related)
+
+def choose_determinant(noun):
+    if noun[0].lower() in ['a', 'e', 'i', 'o', 'u']:
+        return 'an'
+    else:
+        return 'a'
+
+# Fonction pour générer une structure de phrase plausible
+def generate_sentence_structure():
+    structures = [
+        ["DET", "ADJ", "NOUN", "VERB", "ADP", "DET", "ADJ", "NOUN"],
+        ["DET", "NOUN", "VERB", "ADV", "ADP", "DET", "NOUN"],
+        ["ADJ", "NOUN", "ADP", "DET", "NOUN", "VERB", "ADV"],
+        ["NOUN", "VERB", "DET", "ADJ", "NOUN", "ADP", "DET", "NOUN"],
+        ["DET", "ADJ", "NOUN", "VERB", "ADJ", "NOUN"],
+        ["ADJ", "NOUN", "NOUN", "ADP", "DET", "NOUN", "VERB", "ADV"],
+    ]
+    return random.choice(structures)
+
+
+# Fonction pour générer une phrase aléatoire basée sur la structure et le dictionnaire
+def generate_random_sentence(pos_dict):
+    structure = generate_sentence_structure()
+    sentence = []
+
+    for pos in structure:
+        word_list = pos_dict[pos]
+        if word_list:  # Assurez-vous qu'il y a des mots disponibles pour cette catégorie
+            word = random.choice(word_list)
+            if pos == 'VERB':  # Utilisation des synonymes pour les verbes
+                synonyms = find_synonyms(word, pos='v')  # 'v' pour verb
+                if synonyms:
+                    word = random.choice(synonyms)
+            sentence.append(word)
+        else:
+            sentence.append("???")  # Un placeholder si aucune mot n'est disponible
+
+    return ' '.join(sentence).capitalize() + '.'
+
+# Générer et imprimer une phrase aléatoire
+"""
+random_sentence = generate_random_sentence(pos_dict)
+for i in range(10):
+    print(generate_random_sentence(pos_dict))
+"""
+def generate_random_sentence(pos_dict):
+    structure = generate_sentence_structure()
+    sentence = []
+    used_nouns = []  # Pour garder une trace des noms déjà utilisés
+
+    for pos in structure:
+        word_list = pos_dict[pos]
+        if word_list:
+            word = random.choice(word_list)
+            
+            if pos == 'DET':
+                # Trouver le prochain nom dans la structure après le déterminant
+                if 'NOUN' in structure[structure.index(pos)+1:]:
+                    next_noun_index = structure.index('NOUN', structure.index(pos)+1)
+                    next_noun_list = [noun for noun in pos_dict['NOUN'] if noun not in used_nouns]
+                    if next_noun_list:  # S'il reste des noms non utilisés
+                        next_noun = random.choice(next_noun_list)
+                        word = choose_determinant(next_noun)
+                        sentence.append(word)
+                        sentence.append(next_noun)
+                        used_nouns.append(next_noun)  # Marquer le nom comme utilisé
+                    else:
+                        # Si tous les noms ont été utilisés, choisir un nom au hasard
+                        next_noun = random.choice(pos_dict['NOUN'])
+                        word = choose_determinant(next_noun)
+                        sentence.append(word)
+                        sentence.append(next_noun)
+                    continue  # Passer à la prochaine partie de la phrase
+            
+            elif pos == 'VERB':
+                synonyms = find_synonyms(word, pos='v')
+                if synonyms:
+                    word = random.choice(synonyms)
+            
+            elif pos == 'NOUN' and word in used_nouns:
+                continue  # Si le nom a déjà été utilisé avec un déterminant, passer ce mot
+
+            sentence.append(word)
+        else:
+            sentence.append("???")
+
+    # Capitaliser le premier mot et ajouter un point à la fin
+    sentence[0] = sentence[0].capitalize()
+    return ' '.join(sentence) + '.'
+
+# Exemple d'utilisation
+for i in range(10):
+    print(generate_random_sentence(pos_dict))
+
+
+# Dictionnaire de mots liés aux chats par catégorie grammaticale
+cat_related_words = {
+    "NOUN": ["cat", "kitten", "feline"],
+    "VERB": ["purr", "scratch", "meow"],
+    # Ajouter d'autres catégories et mots si nécessaire
+}
+
+# Exemple d'utilisation
+for i in range(10):
+    print(generate_random_sentence(pos_dict))
+
+
