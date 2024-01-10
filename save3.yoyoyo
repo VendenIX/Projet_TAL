@@ -1,0 +1,81 @@
+import nltk
+import spacy 
+from spacy import displacy
+from nltk.corpus import wordnet as wn
+from nltk.tokenize import word_tokenize
+from nltk.wsd import lesk
+import random
+# Assure-toi d'avoir téléchargé les données nécessaires
+# nltk.download('wordnet')
+# nltk.download('punkt')
+#pour dl en_core_web_sm:
+# python -m spacy download en_core_web_sm
+#!python3 -m spacy download en_core_web_sm
+nlp = spacy.load("en_core_web_sm")
+# Tes phrases
+phrase = "A wonderful butterfly going to fly"
+# Création d'un dictionnaire pour stocker les mots par catégorie grammaticale
+
+def compose_pos_dict(phrase):
+    doc = nlp(phrase)
+    pos_dict = {
+        "DET": [],
+        "ADJ": [],
+        "NOUN": [],
+        "ADV": [],
+        "VERB": [],
+        "ADP": [],
+    }
+    for token in doc:
+        if token.pos_ in pos_dict:
+            pos_dict[token.pos_].append(token.text)
+    # Assurer l'unicité des mots dans chaque catégorie
+    for key in pos_dict:
+        pos_dict[key] = list(set(pos_dict[key]))
+
+    return pos_dict
+
+pos_dict = compose_pos_dict(phrase)
+    
+#prendre ADJ : ['wonderful'] de mon post_dct et trouver tous ses synonymes ou mots proches qui sont des adjectifs
+
+def find_synonyms(word, pos=None):
+    synonyms = set()
+    for syn in wn.synsets(word, pos=pos):
+        for lemma in syn.lemmas():
+            synonyms.add(lemma.name().replace('_', ' '))
+    return list(synonyms)
+
+#find_synonyms('wonderful', pos='a')
+
+#fonction qui prend en entrée un texte, utilise  compose_pos_dict pour trouver tous les adjectifs du texte, et essaye de remplacer dans la phrase  tous les adjectifs par les adjectifs + des synynymes avec la fonction find_synonyms
+
+def replace_adjectives(phrase):
+    pos_dict = compose_pos_dict(phrase)
+    new_phrase = phrase
+    for adj in pos_dict['ADJ']:
+        synonyms = find_synonyms(adj, pos='a')
+        if synonyms:
+            new_phrase = new_phrase.replace(adj, random.choice(synonyms))
+    return new_phrase
+
+def exaggerate_adjectives(phrase):
+    """Exagérer les adjectifs dans une phrase."""
+    doc = nlp(phrase)
+    new_words = []
+    for token in doc:
+        new_words.append(token.text)
+        if token.pos_ == 'ADJ':
+            synonyms = find_synonyms(token.text, 'a')
+            random.shuffle(synonyms)
+            for synonym in synonyms[:3]:  # Prendre jusqu'à 3 synonymes
+                new_words.insert(-1, synonym)
+    return ' '.join(new_words)
+
+exaggerate_adjectives(phrase)
+# meme fonction mais cette fois ci accorde 3 synonymes par adjectifs dans la phrase pour exxagerer la phrase
+#donc fait deja une liste des adjectifs de la phrase, on note leur position pour calculer la position a laquelel faut inserer les synnonyme et on ajoute 3 synonymes au max mais on essayera toujours dans ajouter le plus jusqua 3:
+
+
+
+#replace_adjectives(phrase)
